@@ -3,9 +3,12 @@ const app = express();
 const model = require("./model/model");
 const path = require("path");
 const bcrypt = require("bcryptjs");
-
+const cookieparser = require("cookie-parser");
 const staticpath = path.join(__dirname, "./public/css");
+const auth = require("./middleware/auth");
+
 app.use(express.static(staticpath));
+app.use(cookieparser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.set("view engine", "ejs");
@@ -36,7 +39,11 @@ app.post("/register", async (req, res) => {
       });
 
       const token = await empmodel.gentoken();
-      console.log(token);
+      res.cookie("authtoken", token, {
+        expires: new Date(Date.now() + 70000),
+        httpOnly: true,
+      });
+
       const result = await empmodel.save();
       res.status(201).render("home");
     } else {
@@ -45,6 +52,11 @@ app.post("/register", async (req, res) => {
   } catch (e) {
     res.send(e.message);
   }
+});
+
+app.get("/secret", auth, (req, res) => {
+  console.log(`secret page token +${req.cookies.authtoken}`);
+  res.render("secret");
 });
 
 app.get("/login", async (req, res) => {
@@ -58,6 +70,12 @@ app.post("/login", async (req, res) => {
     const useremail = await model.findOne({ email: email });
     const ismatch = await bcrypt.compare(password, useremail.password);
     const token = await useremail.gentoken();
+
+    res.cookie("authtoken", token, {
+      expires: new Date(Date.now() + 70000),
+      httpOnly: true,
+    });
+
     if (ismatch) {
       res.status(200).render("home");
     } else {
@@ -65,6 +83,23 @@ app.post("/login", async (req, res) => {
     }
   } catch (e) {
     res.status(400).render("wrongpass");
+  }
+});
+
+app.get("/logout", auth, async (req, res) => {
+  try {
+    req.user.tokens = req.user.tokens.filter((element) => {
+      return element.token !== req.token;
+    });
+
+    // logout for single user
+    // req.user.tokens = [];
+
+    res.clearCookie("authtoken");
+    await req.user.save();
+    res.render("login");
+  } catch (e) {
+    res.status(500).send(e.message);
   }
 });
 

@@ -56,7 +56,7 @@ const employeeSchema = new mongoose.Schema({
 
 employeeSchema.methods.gentoken = async function (req, res) {
   try {
-    const ctoken = jwt.sign({ id: this._id.toString() }, process.env.SECRET);
+    const ctoken = jwt.sign({ _id: this._id.toString() }, process.env.SECRET);
     this.tokens = this.tokens.concat({ token: ctoken });
     console.log("this is token :" + ctoken);
     await this.save();
